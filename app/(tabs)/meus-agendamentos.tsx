@@ -3,40 +3,49 @@
  * Lista de agendamentos do usuário
  */
 
-import React, { useState, useEffect, useCallback } from "react";
 import {
-  View,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  RefreshControl,
-  Alert,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
-import * as Haptics from "expo-haptics";
-import { format, parseISO, isAfter, isBefore, isToday } from "date-fns";
-import { ptBR } from "date-fns/locale";
-import { useTema } from "@/contexts/TemaContext";
-import Cores from "@/constants/Colors";
-import {
-  Texto,
-  Botao,
-  Cartao,
-  CampoTexto,
-  Carregando,
-  IconeCalendario,
-  IconeRelogio,
-  IconeTesoura,
-  IconeFechar,
+    Botao,
+    CampoTexto,
+    Carregando,
+    Cartao,
+    IconeCalendario,
+    IconeFechar,
+    IconeRelogio,
+    IconeTesoura,
+    Texto,
 } from "@/components/ui";
-import { supabase } from "@/lib/supabase";
+import Cores from "@/constants/Colors";
+import { useTema } from "@/contexts/TemaContext";
 import { formatarPreco } from "@/lib/horarios";
-import type { Agendamento, StatusAgendamento } from "@/types";
+import { supabase } from "@/lib/supabase";
+import type { StatusAgendamento } from "@/types";
+import { format, isAfter, isBefore, isToday } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import * as Haptics from "expo-haptics";
+import React, { useCallback, useState } from "react";
+import {
+    Alert,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    TouchableOpacity,
+    View,
+} from "react-native";
+import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-interface AgendamentoCompleto extends Agendamento {
+// Interface corrigida para campos reais da tabela agendamentos
+interface AgendamentoCompleto {
+  id: string;
+  cliente_id: string;
+  barbeiro_id: string;
+  servico_id: string;
+  data_hora: string;
+  status: StatusAgendamento;
+  observacoes?: string;
+  criado_em?: string;
   barbeiro?: { nome: string };
-  servicos?: { nome: string; preco: number }[];
+  servicos?: { nome: string; preco: number; duracao: number };
 }
 
 /**
@@ -52,14 +61,15 @@ function CardAgendamento({
   const { tema } = useTema();
   const cores = Cores[tema];
 
-  const dataAgendamento = parseISO(agendamento.data);
+  // Usar data_hora (campo correto da tabela) - é um timestamp
+  const dataAgendamento = new Date(agendamento.data_hora);
   const ehHoje = isToday(dataAgendamento);
   const ehFuturo = isAfter(dataAgendamento, new Date());
 
   const getCorStatus = (status: StatusAgendamento) => {
     switch (status) {
       case "pendente":
-        return Cores.fixas.alerta;
+        return "#f59e0b"; // amber/warning
       case "confirmado":
         return cores.sucesso;
       case "concluido":
@@ -132,7 +142,7 @@ function CardAgendamento({
         <View style={styles.detalheItem}>
           <IconeRelogio tamanho={16} cor={cores.textoSecundario} />
           <Texto variante="corpo" secundario>
-            {agendamento.hora_inicio} - {agendamento.hora_fim}
+            {format(dataAgendamento, "HH:mm")}
           </Texto>
         </View>
 
@@ -152,7 +162,7 @@ function CardAgendamento({
           Valor total
         </Texto>
         <Texto variante="subtitulo" negrito>
-          {formatarPreco(agendamento.valor_total)}
+          {formatarPreco(agendamento.servicos?.preco || 0)}
         </Texto>
       </View>
 
@@ -204,31 +214,35 @@ export default function TelaMeusAgendamentos() {
     setCarregando(true);
 
     try {
-      // Buscar cliente
-      const { data: cliente } = await supabase
+      // Buscar TODOS os clientes com esse telefone (pode haver duplicados)
+      const { data: clientes, error: errorClientes } = await supabase
         .from("clientes")
         .select("id")
-        .eq("telefone", telefoneNumeros)
-        .single();
+        .eq("telefone", telefoneNumeros);
 
-      if (!cliente) {
+      if (errorClientes) throw errorClientes;
+
+      if (!clientes || clientes.length === 0) {
         setAgendamentos([]);
         setTelefoneConsultado(telefoneNumeros);
         return;
       }
 
-      // Buscar agendamentos
+      // Pegar IDs de todos os clientes com esse telefone
+      const clienteIds = clientes.map(c => c.id);
+
+      // Buscar agendamentos de TODOS os clientes com esse telefone
       const { data, error } = await supabase
         .from("agendamentos")
         .select(
           `
           *,
-          barbeiro:barbeiros(nome)
+          barbeiro:barbeiros(nome),
+          servicos(nome, preco, duracao)
         `
         )
-        .eq("cliente_id", cliente.id)
-        .order("data", { ascending: false })
-        .order("hora_inicio", { ascending: false })
+        .in("cliente_id", clienteIds)
+        .order("data_hora", { ascending: false })
         .limit(20);
 
       if (error) throw error;
@@ -281,23 +295,26 @@ export default function TelaMeusAgendamentos() {
     );
   };
 
-  // Separar agendamentos por período
+  // Separar agendamentos por período (usando data_hora)
   const agendamentosFuturos = agendamentos.filter(
     (a) =>
-      (isAfter(parseISO(a.data), new Date()) || isToday(parseISO(a.data))) &&
+      (isAfter(new Date(a.data_hora), new Date()) || isToday(new Date(a.data_hora))) &&
       !["cancelado", "concluido", "nao_compareceu"].includes(a.status)
   );
 
   const agendamentosPassados = agendamentos.filter(
     (a) =>
-      isBefore(parseISO(a.data), new Date()) ||
+      isBefore(new Date(a.data_hora), new Date()) ||
       ["cancelado", "concluido", "nao_compareceu"].includes(a.status)
   );
 
   // Tela de busca
   if (!telefoneConsultado) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: cores.fundo }]}>
+      <SafeAreaView 
+        style={[styles.container, { backgroundColor: cores.fundo }]}
+        edges={["top"]}
+      >
         <View style={styles.header}>
           <Texto variante="titulo">Meus Agendamentos</Texto>
         </View>
@@ -335,7 +352,10 @@ export default function TelaMeusAgendamentos() {
 
   // Lista de agendamentos
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: cores.fundo }]}>
+    <SafeAreaView 
+      style={[styles.container, { backgroundColor: cores.fundo }]}
+      edges={["top"]}
+    >
       <View style={styles.header}>
         <Texto variante="titulo">Meus Agendamentos</Texto>
         <TouchableOpacity

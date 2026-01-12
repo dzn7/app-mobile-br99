@@ -3,15 +3,15 @@
  * Card reutilizável seguindo o design system
  */
 
-import React from "react";
-import { View, ViewStyle, StyleSheet } from "react-native";
-import Animated, { FadeInDown } from "react-native-reanimated";
-import { useTema } from "@/contexts/TemaContext";
 import Cores from "@/constants/Colors";
+import { useTema } from "@/contexts/TemaContext";
+import React from "react";
+import { View, ViewStyle } from "react-native";
+import Animated, { FadeInDown } from "react-native-reanimated";
 
 interface CartaoProps {
   children: React.ReactNode;
-  estilo?: ViewStyle;
+  estilo?: ViewStyle | ViewStyle[];
   pressionavel?: boolean;
   onPress?: () => void;
   animacaoEntrada?: boolean;

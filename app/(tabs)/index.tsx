@@ -3,25 +3,25 @@
  * Home do aplicativo com hero, serviços e avaliações
  */
 
-import React from "react";
-import {
-  View,
-  ScrollView,
-  StyleSheet,
-  Dimensions,
-  TouchableOpacity,
-  Linking,
-} from "react-native";
+import { Botao, Carregando, Cartao, IconeEstrela, Texto } from "@/components/ui";
+import Cores from "@/constants/Colors";
+import { useTema } from "@/contexts/TemaContext";
+import { useAvaliacoes } from "@/hooks/useAvaliacoes";
+import { useServicos } from "@/hooks/useServicos";
+import { formatarPreco } from "@/lib/horarios";
 import { Image } from "expo-image";
 import { router } from "expo-router";
-import { SafeAreaView } from "react-native-safe-area-context";
+import React from "react";
+import {
+    Dimensions,
+    Linking,
+    ScrollView,
+    StyleSheet,
+    TouchableOpacity,
+    View,
+} from "react-native";
 import Animated, { FadeInDown, FadeInRight } from "react-native-reanimated";
-import { useTema } from "@/contexts/TemaContext";
-import Cores from "@/constants/Colors";
-import { Texto, Botao, Cartao, Carregando, IconeEstrela } from "@/components/ui";
-import { useServicos } from "@/hooks/useServicos";
-import { useAvaliacoes } from "@/hooks/useAvaliacoes";
-import { formatarPreco } from "@/lib/horarios";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const { width } = Dimensions.get("window");
 
@@ -231,7 +231,7 @@ function SecaoAvaliacoes() {
 
       {/* Média geral */}
       <View style={[styles.mediaGeral, { backgroundColor: cores.cartao }]}>
-        <Texto variante="titulo" style={{ fontSize: 48 }}>
+        <Texto variante="titulo" style={styles.notaMedia}>
           {estatisticas.mediaNotas}
         </Texto>
         <View style={styles.estrelasMedia}>
@@ -347,7 +347,10 @@ export default function TelaInicial() {
   const cores = Cores[tema];
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: cores.fundo }]}>
+    <SafeAreaView 
+      style={[styles.container, { backgroundColor: cores.fundo }]}
+      edges={["top"]}
+    >
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
@@ -467,6 +470,11 @@ const styles = StyleSheet.create({
     padding: 24,
     borderRadius: 16,
     marginBottom: 16,
+  },
+  notaMedia: {
+    fontSize: 42,
+    lineHeight: 50,
+    fontWeight: "700",
   },
   estrelasMedia: {
     flexDirection: "row",

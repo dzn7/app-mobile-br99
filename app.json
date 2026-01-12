@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "BarbeariaBR99",
+    "name": "Barbearia BR99",
     "slug": "barbeariabr99-app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -8,6 +8,11 @@
     "scheme": "barbeariabr99",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/images/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#09090b"
+    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.barbeariabr99.app"
@@ -17,7 +22,12 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#09090b"
       },
-      "package": "com.barbeariabr99.app"
+      "package": "com.barbeariabr99.app",
+      "versionCode": 1,
+      "permissions": [
+        "android.permission.INTERNET",
+        "android.permission.VIBRATE"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -33,8 +43,10 @@
     },
     "extra": {
       "eas": {
-        "projectId": "barbeariabr99"
-      }
-    }
+        "projectId": "76847891-391a-4424-a69e-430891b01373"
+      },
+      "router": {}
+    },
+    "owner": "derick7zn"
   }
 }

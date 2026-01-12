@@ -3,50 +3,47 @@
  * Fluxo completo de agendamento de serviços
  */
 
-import React, { useState, useCallback, useMemo } from "react";
 import {
-  View,
+  Botao,
+  CampoTexto,
+  Carregando,
+  Cartao,
+  IconeCalendario,
+  IconeCheck,
+  IconeRelogio,
+  IconeTesoura,
+  Texto,
+} from "@/components/ui";
+import Cores from "@/constants/Colors";
+import { useTema } from "@/contexts/TemaContext";
+import { useBarbeiros } from "@/hooks/useBarbeiros";
+import { useConfiguracaoBarbearia } from "@/hooks/useConfiguracaoBarbearia";
+import { useServicos } from "@/hooks/useServicos";
+import {
+  formatarPreco,
+  gerarTodosHorarios
+} from "@/lib/horarios";
+import { supabase } from "@/lib/supabase";
+import type { HorarioComStatus } from "@/types";
+import { addDays, format, isToday, isTomorrow } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import * as Haptics from "expo-haptics";
+import React, { useCallback, useMemo, useState } from "react";
+import {
+  Alert,
+  Dimensions,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
-  Dimensions,
-  Alert,
+  View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import Animated, {
   FadeInDown,
-  FadeInRight,
   FadeInUp,
   SlideInRight,
-  SlideOutLeft,
+  SlideOutLeft
 } from "react-native-reanimated";
-import * as Haptics from "expo-haptics";
-import { format, addDays, isToday, isTomorrow, parseISO } from "date-fns";
-import { ptBR } from "date-fns/locale";
-import { useTema } from "@/contexts/TemaContext";
-import { useAutenticacao } from "@/contexts/AutenticacaoContext";
-import Cores from "@/constants/Colors";
-import {
-  Texto,
-  Botao,
-  Cartao,
-  CampoTexto,
-  Carregando,
-  IconeCheck,
-  IconeCalendario,
-  IconeRelogio,
-  IconeTesoura,
-} from "@/components/ui";
-import { useServicos } from "@/hooks/useServicos";
-import { useBarbeiros } from "@/hooks/useBarbeiros";
-import { useConfiguracaoBarbearia } from "@/hooks/useConfiguracaoBarbearia";
-import { supabase } from "@/lib/supabase";
-import {
-  gerarHorariosDisponiveis,
-  formatarPreco,
-  calcularDuracaoTotal,
-} from "@/lib/horarios";
-import type { Servico, Barbeiro, HorarioComStatus } from "@/types";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const { width } = Dimensions.get("window");
 
@@ -119,18 +116,13 @@ function EtapaServicos({
                 activeOpacity={0.7}
               >
                 <Cartao
-                  estilo={[
-                    styles.cartaoServico,
-                    selecionado && {
-                      borderColor: cores.sucesso,
-                      borderWidth: 2,
-                    },
-                  ]}
+                  estilo={
+                    selecionado
+                      ? { ...styles.cartaoServico, borderColor: cores.sucesso, borderWidth: 2 }
+                      : styles.cartaoServico
+                  }
                 >
                   <View style={styles.servicoInfo}>
-                    <View style={styles.servicoIcone}>
-                      <IconeTesoura tamanho={20} cor={cores.texto} />
-                    </View>
                     <View style={styles.servicoDetalhes}>
                       <Texto variante="label" negrito>
                         {servico.nome}
@@ -237,13 +229,11 @@ function EtapaBarbeiro({
                 activeOpacity={0.7}
               >
                 <Cartao
-                  estilo={[
-                    styles.cartaoBarbeiro,
-                    selecionado && {
-                      borderColor: cores.sucesso,
-                      borderWidth: 2,
-                    },
-                  ]}
+                  estilo={
+                    selecionado
+                      ? { ...styles.cartaoBarbeiro, borderColor: cores.sucesso, borderWidth: 2 }
+                      : styles.cartaoBarbeiro
+                  }
                 >
                   <View style={styles.barbeiroAvatar}>
                     <Texto variante="titulo">
@@ -287,7 +277,7 @@ function EtapaBarbeiro({
 }
 
 /**
- * Componente de seleção de data
+ * Componente de seleção de data - Design sofisticado com filtro de dias de funcionamento
  */
 function EtapaData({
   dataSelecionada,
@@ -300,17 +290,46 @@ function EtapaData({
 }) {
   const { tema } = useTema();
   const cores = Cores[tema];
+  const { configuracao } = useConfiguracaoBarbearia();
 
-  // Gerar próximos 14 dias
-  const datasDisponiveis = useMemo(() => {
+  // Mapa de dias da semana
+  const mapaDias = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
+  
+  // Dias de funcionamento da barbearia
+  const diasFuncionamento = configuracao?.dias_funcionamento || ['seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
+
+  // Gerar próximos 21 dias
+  const todasDatas = useMemo(() => {
     const hoje = new Date();
-    return Array.from({ length: 14 }, (_, i) => addDays(hoje, i));
+    return Array.from({ length: 21 }, (_, i) => addDays(hoje, i));
   }, []);
 
-  const formatarDataCurta = (data: Date) => {
-    if (isToday(data)) return "Hoje";
-    if (isTomorrow(data)) return "Amanhã";
-    return format(data, "EEE, dd", { locale: ptBR });
+  // Verificar se um dia está disponível (barbearia abre)
+  const diaDisponivel = useCallback((data: Date) => {
+    const diaSemana = mapaDias[data.getDay()];
+    return diasFuncionamento.includes(diaSemana);
+  }, [diasFuncionamento]);
+
+  // Agrupar por semana para melhor visualização
+  const semanas = useMemo(() => {
+    const grupos: Date[][] = [];
+    let semanaAtual: Date[] = [];
+    
+    todasDatas.forEach((data, index) => {
+      semanaAtual.push(data);
+      if (semanaAtual.length === 7 || index === todasDatas.length - 1) {
+        grupos.push(semanaAtual);
+        semanaAtual = [];
+      }
+    });
+    
+    return grupos;
+  }, [todasDatas]);
+
+  const formatarDataCompleta = (data: Date) => {
+    if (isToday(data)) return "Hoje, " + format(data, "dd 'de' MMMM", { locale: ptBR });
+    if (isTomorrow(data)) return "Amanhã, " + format(data, "dd 'de' MMMM", { locale: ptBR });
+    return format(data, "EEEE, dd 'de' MMMM", { locale: ptBR });
   };
 
   return (
@@ -320,66 +339,121 @@ function EtapaData({
       style={styles.etapaContainer}
     >
       <Texto variante="subtitulo" style={styles.etapaTitulo}>
-        Escolha a data
+        Escolha a Data
       </Texto>
       <Texto variante="corpo" secundario style={styles.etapaSubtitulo}>
         Selecione o melhor dia para você
       </Texto>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
-        <View style={styles.gridDatas}>
-          {datasDisponiveis.map((data, index) => {
-            const selecionada =
-              dataSelecionada &&
-              format(data, "yyyy-MM-dd") ===
-                format(dataSelecionada, "yyyy-MM-dd");
+      {/* Data selecionada destacada */}
+      {dataSelecionada && (
+        <Animated.View 
+          entering={FadeInDown.springify()}
+          style={[styles.dataSelecionadaCard, { backgroundColor: cores.destaque }]}
+        >
+          <View style={styles.dataSelecionadaIcone}>
+            <IconeCalendario tamanho={24} cor="#fff" />
+          </View>
+          <View style={styles.dataSelecionadaInfo}>
+            <Texto variante="pequeno" cor="rgba(255,255,255,0.7)">Data selecionada</Texto>
+            <Texto variante="subtitulo" cor="#fff" negrito>
+              {formatarDataCompleta(dataSelecionada)}
+            </Texto>
+          </View>
+        </Animated.View>
+      )}
 
+      {/* Calendário visual por semanas */}
+      <ScrollView 
+        showsVerticalScrollIndicator={false} 
+        style={styles.calendarioScroll}
+        contentContainerStyle={styles.calendarioContent}
+      >
+        {/* Header dos dias da semana */}
+        <View style={styles.diasSemanaHeader}>
+          {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((dia, idx) => {
+            const diaAbrev = mapaDias[idx];
+            const aberto = diasFuncionamento.includes(diaAbrev);
             return (
-              <Animated.View
-                key={data.toISOString()}
-                entering={FadeInDown.delay(index * 30)}
-                style={styles.dataItem}
-              >
-                <TouchableOpacity
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    onSelectData(data);
-                  }}
-                  activeOpacity={0.7}
-                  style={[
-                    styles.botaoData,
-                    {
-                      backgroundColor: selecionada
-                        ? cores.botaoPrimario
-                        : cores.cartao,
-                      borderColor: selecionada ? cores.botaoPrimario : cores.borda,
-                    },
-                  ]}
+              <View key={dia} style={styles.diaSemanaItem}>
+                <Texto 
+                  variante="pequeno" 
+                  cor={aberto ? cores.texto : cores.textoSecundario} 
+                  style={{ textAlign: 'center', opacity: aberto ? 1 : 0.4 }}
                 >
-                  <Texto
-                    variante="pequeno"
-                    cor={selecionada ? cores.botaoPrimarioTexto : cores.textoSecundario}
-                  >
-                    {format(data, "EEE", { locale: ptBR }).toUpperCase()}
-                  </Texto>
-                  <Texto
-                    variante="titulo"
-                    cor={selecionada ? cores.botaoPrimarioTexto : cores.texto}
-                    negrito
-                  >
-                    {format(data, "dd")}
-                  </Texto>
-                  <Texto
-                    variante="pequeno"
-                    cor={selecionada ? cores.botaoPrimarioTexto : cores.textoSecundario}
-                  >
-                    {format(data, "MMM", { locale: ptBR })}
-                  </Texto>
-                </TouchableOpacity>
-              </Animated.View>
+                  {dia}
+                </Texto>
+              </View>
             );
           })}
         </View>
+
+        {/* Grid de datas */}
+        {semanas.map((semana, semanaIndex) => (
+          <View key={semanaIndex} style={styles.semanaRow}>
+            {/* Preencher espaços vazios no início */}
+            {semanaIndex === 0 && Array.from({ length: todasDatas[0].getDay() }).map((_, i) => (
+              <View key={`empty-${i}`} style={styles.diaVazio} />
+            ))}
+            
+            {semana.map((data, index) => {
+              const selecionada = dataSelecionada && 
+                format(data, "yyyy-MM-dd") === format(dataSelecionada, "yyyy-MM-dd");
+              const ehHoje = isToday(data);
+              const disponivel = diaDisponivel(data);
+
+              return (
+                <Animated.View
+                  key={data.toISOString()}
+                  entering={FadeInDown.delay((semanaIndex * 7 + index) * 15)}
+                  style={styles.diaItem}
+                >
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (disponivel) {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        onSelectData(data);
+                      }
+                    }}
+                    activeOpacity={disponivel ? 0.7 : 1}
+                    disabled={!disponivel}
+                    style={[
+                      styles.diaBotao,
+                      selecionada && styles.diaSelecionado,
+                      ehHoje && !selecionada && disponivel && styles.diaHoje,
+                      !disponivel && styles.diaIndisponivel,
+                      !selecionada && !ehHoje && disponivel && { backgroundColor: cores.cartao, borderColor: cores.borda },
+                    ]}
+                  >
+                    <Texto
+                      variante="label"
+                      negrito
+                      cor={
+                        !disponivel 
+                          ? cores.textoSecundario 
+                          : selecionada 
+                          ? "#fff" 
+                          : ehHoje 
+                          ? cores.destaque 
+                          : cores.texto
+                      }
+                      style={!disponivel ? { opacity: 0.4 } : undefined}
+                    >
+                      {format(data, "dd")}
+                    </Texto>
+                    <Texto
+                      variante="pequeno"
+                      cor={selecionada ? "rgba(255,255,255,0.8)" : cores.textoSecundario}
+                      style={{ fontSize: 10, opacity: disponivel ? 1 : 0.4 }}
+                    >
+                      {format(data, "MMM", { locale: ptBR })}
+                    </Texto>
+                  </TouchableOpacity>
+                </Animated.View>
+              );
+            })}
+          </View>
+        ))}
       </ScrollView>
 
       {dataSelecionada && (
@@ -422,39 +496,145 @@ function EtapaHorario({
       .reduce((acc, s) => acc + s.duracao, 0);
   }, [servicos, servicosSelecionados]);
 
-  // Buscar horários disponíveis
+  // Buscar horários disponíveis em tempo real (mesmo formato do site web)
   React.useEffect(() => {
     async function buscarHorarios() {
       setCarregando(true);
 
       try {
         const dataStr = format(dataSelecionada, "yyyy-MM-dd");
+        
+        // Criar datas em UTC para evitar problemas de timezone (igual ao site web)
+        const [ano, mes, dia] = dataStr.split('-').map(Number);
+        const inicioDia = new Date(Date.UTC(ano, mes - 1, dia, 0, 0, 0, 0));
+        const fimDia = new Date(Date.UTC(ano, mes - 1, dia, 23, 59, 59, 999));
 
-        // Buscar agendamentos do dia
-        const { data: agendamentos } = await supabase
+        console.log('🔍 Buscando horários:', { dataStr, barbeiroId });
+
+        // Buscar agendamentos do dia usando data_hora (timestamp)
+        const { data: agendamentos, error: errorAg } = await supabase
           .from("agendamentos")
-          .select("hora_inicio, hora_fim, status")
-          .eq("data", dataStr)
+          .select("data_hora, servico_id, status, servicos(duracao)")
+          .gte("data_hora", inicioDia.toISOString())
+          .lte("data_hora", fimDia.toISOString())
           .eq("barbeiro_id", barbeiroId)
-          .in("status", ["pendente", "confirmado"]);
+          .neq("status", "cancelado");
 
-        // Gerar horários com status
-        const config = {
-          inicio: configuracao?.horario_abertura || "09:00",
-          fim: configuracao?.horario_fechamento || "19:00",
-          intervaloAlmocoInicio: configuracao?.intervalo_almoco_inicio,
-          intervaloAlmocoFim: configuracao?.intervalo_almoco_fim,
-          intervaloHorarios: configuracao?.intervalo_horarios || 30,
+        if (errorAg) {
+          console.error("❌ Erro ao buscar agendamentos:", errorAg);
+        }
+
+        console.log('✅ Agendamentos encontrados:', agendamentos?.length || 0);
+
+        // Converter agendamentos para o formato {horario, duracao} (igual ao site web)
+        const ocupadosAgendamentos = (agendamentos || []).map((ag: any) => {
+          const horario = format(new Date(ag.data_hora), "HH:mm");
+          const duracao = ag.servicos?.duracao || 30;
+          console.log(`🔴 Horário ocupado: ${horario} (${duracao} min)`);
+          return { horario, duracao };
+        });
+
+        // Buscar horários bloqueados do dia
+        const { data: bloqueios, error: errorBloq } = await supabase
+          .from("horarios_bloqueados")
+          .select("*")
+          .eq("data", dataStr)
+          .or(`barbeiro_id.is.null,barbeiro_id.eq.${barbeiroId}`);
+
+        if (errorBloq) {
+          console.error("❌ Erro ao buscar bloqueios:", errorBloq);
+        }
+
+        console.log('🔒 Bloqueios encontrados:', bloqueios?.length || 0);
+
+        // Converter bloqueios para o formato {horario, duracao} (igual ao site web)
+        const ocupadosBloqueios: Array<{horario: string, duracao: number}> = [];
+        if (bloqueios) {
+          bloqueios.forEach((bloqueio: any) => {
+            const horaInicioStr = bloqueio.horario_inicio?.substring(0, 5) || "00:00";
+            const horaFimStr = bloqueio.horario_fim?.substring(0, 5) || "00:00";
+            
+            const dataBase = new Date(2000, 0, 1);
+            const [hI, mI] = horaInicioStr.split(':').map(Number);
+            const [hF, mF] = horaFimStr.split(':').map(Number);
+            
+            const inicioBloqueio = new Date(dataBase);
+            inicioBloqueio.setHours(hI, mI, 0, 0);
+            
+            const fimBloqueio = new Date(dataBase);
+            fimBloqueio.setHours(hF, mF, 0, 0);
+            
+            // Se o bloqueio cobre múltiplos intervalos de 20min, criar entradas para cada um
+            let horarioAtual = new Date(inicioBloqueio);
+            while (horarioAtual < fimBloqueio) {
+              const horarioFormatado = format(horarioAtual, "HH:mm");
+              const tempoRestante = Math.ceil((fimBloqueio.getTime() - horarioAtual.getTime()) / 60000);
+              const duracaoBloqueio = Math.min(20, tempoRestante);
+              
+              ocupadosBloqueios.push({
+                horario: horarioFormatado,
+                duracao: duracaoBloqueio
+              });
+              
+              // Avançar 20 minutos
+              horarioAtual = new Date(horarioAtual.getTime() + 20 * 60000);
+            }
+            
+            console.log(`🔒 Bloqueio: ${horaInicioStr} - ${horaFimStr}`);
+          });
+        }
+
+        // Combinar agendamentos e bloqueios
+        const todosOcupados = [...ocupadosAgendamentos, ...ocupadosBloqueios];
+        console.log('📊 Total ocupados:', todosOcupados.length);
+
+        // Normalizar horários do Supabase (remover segundos se houver)
+        const normalizarHorario = (horario: string | null | undefined): string | null => {
+          if (!horario) return null;
+          if (horario.length === 8) return horario.substring(0, 5);
+          return horario;
         };
 
-        const horariosGerados = gerarHorariosDisponiveis(
-          config,
-          agendamentos || [],
-          duracaoTotal,
-          dataSelecionada
-        );
+        // Gerar horários com status usando gerarTodosHorarios (igual ao site web)
+        const config = {
+          inicio: normalizarHorario(configuracao?.horario_abertura) || "08:00",
+          fim: normalizarHorario(configuracao?.horario_fechamento) || "19:00",
+          intervaloAlmocoInicio: normalizarHorario(configuracao?.intervalo_almoco_inicio),
+          intervaloAlmocoFim: normalizarHorario(configuracao?.intervalo_almoco_fim),
+          intervaloHorarios: configuracao?.intervalo_horarios || 20,
+        };
 
-        setHorarios(horariosGerados);
+        console.log('⏰ Config horários:', config);
+
+        // gerarTodosHorarios retorna { horario, disponivel } mas o app usa { hora, disponivel }
+        const todosHorariosGerados = gerarTodosHorarios(duracaoTotal, todosOcupados, config) as unknown as Array<{ horario: string; disponivel: boolean }>;
+        console.log('📋 Horários gerados:', todosHorariosGerados.length);
+        
+        // Converter para o formato esperado pelo componente e filtrar horários passados se for hoje
+        const agora = new Date();
+        const ehHoje = format(dataSelecionada, "yyyy-MM-dd") === format(agora, "yyyy-MM-dd");
+        
+        // Filtrar horários passados se for hoje e converter para formato do app
+        const horariosFinais: HorarioComStatus[] = [];
+        
+        for (const h of todosHorariosGerados) {
+          // Se for hoje, verificar se o horário já passou
+          if (ehHoje) {
+            const [horas, minutos] = h.horario.split(":").map(Number);
+            const horarioDate = new Date(dataSelecionada);
+            horarioDate.setHours(horas, minutos, 0, 0);
+            if (horarioDate <= agora) continue;
+          }
+          
+          // Converter de {horario, disponivel} para {hora, disponivel}
+          horariosFinais.push({
+            hora: h.horario,
+            disponivel: h.disponivel,
+          });
+        }
+
+        console.log('✅ Horários disponíveis:', horariosFinais.filter(h => h.disponivel).length);
+        setHorarios(horariosFinais);
       } catch (error) {
         console.error("Erro ao buscar horários:", error);
       } finally {
@@ -463,13 +643,48 @@ function EtapaHorario({
     }
 
     buscarHorarios();
+
+    // Subscription para atualizações em tempo real (igual ao site web)
+    const canalAgendamentos = supabase
+      .channel(`horarios-${barbeiroId}-${format(dataSelecionada, "yyyy-MM-dd")}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "agendamentos",
+          filter: `barbeiro_id=eq.${barbeiroId}`,
+        },
+        () => {
+          console.log("🔄 Agendamentos atualizados, recarregando horários...");
+          buscarHorarios();
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "horarios_bloqueados",
+        },
+        () => {
+          console.log("🔄 Bloqueios atualizados, recarregando horários...");
+          buscarHorarios();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(canalAgendamentos);
+    };
   }, [dataSelecionada, barbeiroId, duracaoTotal, configuracao]);
 
   if (carregando) {
     return <Carregando mensagem="Carregando horários disponíveis..." telaCheia />;
   }
 
-  const horariosDisponiveis = horarios.filter((h) => h.disponivel);
+  // Contar horários ocupados para exibir
+  const horariosOcupados = horarios.filter((h) => !h.disponivel).length;
 
   return (
     <Animated.View
@@ -484,7 +699,7 @@ function EtapaHorario({
         {format(dataSelecionada, "EEEE, dd 'de' MMMM", { locale: ptBR })}
       </Texto>
 
-      {horariosDisponiveis.length === 0 ? (
+      {horarios.length === 0 ? (
         <View style={styles.semHorarios}>
           <IconeCalendario tamanho={48} cor={cores.textoSecundario} />
           <Texto variante="corpo" secundario centralizado style={{ marginTop: 16 }}>
@@ -493,41 +708,62 @@ function EtapaHorario({
         </View>
       ) : (
         <ScrollView showsVerticalScrollIndicator={false}>
+          {/* Indicador de horários ocupados */}
+          {horariosOcupados > 0 && (
+            <View style={styles.indicadorOcupados}>
+              <View style={styles.bolinhaVermelha} />
+              <Texto variante="pequeno" secundario>
+                {horariosOcupados} horário{horariosOcupados > 1 ? 's' : ''} ocupado{horariosOcupados > 1 ? 's' : ''}
+              </Texto>
+            </View>
+          )}
+
+          {/* Grid de horários - mostra TODOS (disponíveis e ocupados) */}
           <View style={styles.gridHorarios}>
-            {horariosDisponiveis.map((horario, index) => {
+            {horarios.map((horario, index) => {
               const selecionado = horarioSelecionado === horario.hora;
+              const ocupado = !horario.disponivel;
 
               return (
                 <Animated.View
                   key={horario.hora}
-                  entering={FadeInRight.delay(index * 30)}
+                  entering={FadeInDown.delay(index * 20)}
+                  style={styles.horarioItem}
                 >
                   <TouchableOpacity
                     onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      onSelectHorario(horario.hora);
+                      if (!ocupado) {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        onSelectHorario(horario.hora);
+                      }
                     }}
-                    activeOpacity={0.7}
+                    activeOpacity={ocupado ? 1 : 0.7}
+                    disabled={ocupado}
                     style={[
                       styles.botaoHorario,
-                      {
-                        backgroundColor: selecionado
-                          ? cores.botaoPrimario
-                          : cores.cartao,
-                        borderColor: selecionado
-                          ? cores.botaoPrimario
-                          : cores.borda,
-                      },
+                      ocupado
+                        ? styles.horarioOcupado
+                        : selecionado
+                        ? styles.horarioSelecionado
+                        : { backgroundColor: cores.cartao, borderColor: cores.borda },
                     ]}
                   >
-                    <IconeRelogio
-                      tamanho={16}
-                      cor={selecionado ? cores.botaoPrimarioTexto : cores.texto}
-                    />
+                    {/* Bolinha vermelha para ocupados */}
+                    {ocupado && (
+                      <View style={styles.bolinhaOcupado} />
+                    )}
+                    
                     <Texto
                       variante="label"
                       negrito
-                      cor={selecionado ? cores.botaoPrimarioTexto : cores.texto}
+                      cor={
+                        ocupado
+                          ? "#ef4444"
+                          : selecionado
+                          ? cores.botaoPrimarioTexto
+                          : cores.texto
+                      }
+                      style={ocupado ? styles.textoRiscado : undefined}
                     >
                       {horario.hora}
                     </Texto>
@@ -777,31 +1013,29 @@ export default function TelaAgendamento() {
       }
 
       // Calcular valores
-      const { data: servicos } = await supabase
+      const { data: servicosData } = await supabase
         .from("servicos")
-        .select("preco, duracao")
+        .select("id, preco, duracao")
         .in("id", servicosSelecionados);
 
-      const valorTotal = servicos?.reduce((acc, s) => acc + s.preco, 0) || 0;
-      const duracaoTotal = servicos?.reduce((acc, s) => acc + s.duracao, 0) || 0;
+      const valorTotal = servicosData?.reduce((acc, s) => acc + s.preco, 0) || 0;
 
-      // Calcular hora fim
+      // Criar data_hora combinada (igual ao site web)
       const [horas, minutos] = horarioSelecionado.split(":").map(Number);
-      const inicio = new Date(dataSelecionada);
-      inicio.setHours(horas, minutos, 0, 0);
-      const fim = new Date(inicio.getTime() + duracaoTotal * 60000);
-      const horaFim = format(fim, "HH:mm");
+      const dataHora = new Date(dataSelecionada);
+      dataHora.setHours(horas, minutos, 0, 0);
 
-      // Criar agendamento
+      // Usar primeiro serviço selecionado (a tabela usa servico_id singular)
+      const primeiroServicoId = servicosSelecionados[0];
+
+      // Criar agendamento usando data_hora (timestamp) - formato correto da tabela
       const { error: erroAgendamento } = await supabase
         .from("agendamentos")
         .insert({
           cliente_id: cliente.id,
           barbeiro_id: barbeiroSelecionado,
-          data: format(dataSelecionada, "yyyy-MM-dd"),
-          hora_inicio: horarioSelecionado,
-          hora_fim: horaFim,
-          valor_total: valorTotal,
+          servico_id: primeiroServicoId,
+          data_hora: dataHora.toISOString(),
           status: "pendente",
         });
 
@@ -834,7 +1068,10 @@ export default function TelaAgendamento() {
   // Tela de sucesso
   if (agendamentoConcluido) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: cores.fundo }]}>
+      <SafeAreaView 
+        style={[styles.container, { backgroundColor: cores.fundo }]}
+        edges={["top"]}
+      >
         <View style={styles.sucessoContainer}>
           <Animated.View
             entering={FadeInDown.springify()}
@@ -880,7 +1117,10 @@ export default function TelaAgendamento() {
   const indiceEtapa = etapas.indexOf(etapa);
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: cores.fundo }]}>
+    <SafeAreaView 
+      style={[styles.container, { backgroundColor: cores.fundo }]}
+      edges={["top"]}
+    >
       {/* Header */}
       <View style={styles.header}>
         {etapa !== "servicos" && (
@@ -1005,15 +1245,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
   },
-  servicoIcone: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    backgroundColor: "#f4f4f5",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
-  },
   servicoDetalhes: {
     flex: 1,
   },
@@ -1062,32 +1293,176 @@ const styles = StyleSheet.create({
   gridDatas: {
     flexDirection: "row",
     flexWrap: "wrap",
+    justifyContent: "center",
     gap: 10,
+    paddingHorizontal: 4,
   },
   dataItem: {
-    width: (width - 60) / 4,
+    width: (width - 70) / 4,
+    minWidth: 72,
+    maxWidth: 90,
   },
   botaoData: {
-    aspectRatio: 0.85,
+    aspectRatio: 0.8,
     borderRadius: 12,
-    borderWidth: 1,
+    borderWidth: 2,
     alignItems: "center",
     justifyContent: "center",
     gap: 2,
+    paddingVertical: 8,
+  },
+  dataSelecionada: {
+    backgroundColor: "#18181b",
+    borderColor: "#18181b",
+  },
+  seletorDataContainer: {
+    marginBottom: 8,
+  },
+  labelData: {
+    marginBottom: 8,
+  },
+  dropdownData: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  dropdownLista: {
+    marginTop: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    overflow: "hidden",
+  },
+  dropdownItem: {
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  // Estilos do calendário sofisticado
+  dataSelecionadaCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  dataSelecionadaIcone: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  dataSelecionadaInfo: {
+    flex: 1,
+  },
+  calendarioScroll: {
+    flex: 1,
+  },
+  calendarioContent: {
+    paddingBottom: 100,
+  },
+  diasSemanaHeader: {
+    flexDirection: "row",
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  diaSemanaItem: {
+    flex: 1,
+    alignItems: "center",
+  },
+  semanaRow: {
+    flexDirection: "row",
+    marginBottom: 8,
+    paddingHorizontal: 4,
+  },
+  diaVazio: {
+    flex: 1,
+    aspectRatio: 1,
+    margin: 4,
+  },
+  diaItem: {
+    flex: 1,
+    margin: 4,
+  },
+  diaBotao: {
+    aspectRatio: 1,
+    borderRadius: 12,
+    borderWidth: 2,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  diaSelecionado: {
+    backgroundColor: "#18181b",
+    borderColor: "#18181b",
+  },
+  diaHoje: {
+    borderColor: "#22c55e",
+    borderWidth: 2,
+  },
+  diaIndisponivel: {
+    backgroundColor: "transparent",
+    borderColor: "rgba(255,255,255,0.1)",
+    opacity: 0.4,
   },
   gridHorarios: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 10,
+    justifyContent: "flex-start",
+    paddingHorizontal: 4,
+    paddingBottom: 100,
+  },
+  horarioItem: {
+    width: (width - 48) / 4,
+    padding: 4,
   },
   botaoHorario: {
+    aspectRatio: 1.3,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 12,
+    borderWidth: 2,
+    position: "relative",
+  },
+  horarioOcupado: {
+    backgroundColor: "rgba(239, 68, 68, 0.1)",
+    borderColor: "rgba(239, 68, 68, 0.4)",
+  },
+  horarioSelecionado: {
+    backgroundColor: "#18181b",
+    borderColor: "#18181b",
+  },
+  bolinhaOcupado: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#ef4444",
+    borderWidth: 2,
+    borderColor: "#18181b",
+  },
+  textoRiscado: {
+    textDecorationLine: "line-through",
+    opacity: 0.7,
+  },
+  indicadorOcupados: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
     gap: 8,
+    marginBottom: 16,
+    justifyContent: "center",
+  },
+  bolinhaVermelha: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#ef4444",
   },
   semHorarios: {
     flex: 1,

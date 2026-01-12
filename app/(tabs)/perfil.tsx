@@ -3,30 +3,29 @@
  * Configurações e informações do usuário
  */
 
-import React from "react";
 import {
-  View,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  Switch,
-  Linking,
-  Alert,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import Animated, { FadeInDown, FadeInRight } from "react-native-reanimated";
+    Cartao,
+    IconeLocal,
+    IconeTelefone,
+    Texto
+} from "@/components/ui";
+import Cores from "@/constants/Colors";
+import { useTema } from "@/contexts/TemaContext";
+import { Feather, Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
-import { useTema } from "@/contexts/TemaContext";
-import Cores from "@/constants/Colors";
+import React from "react";
 import {
-  Texto,
-  Cartao,
-  IconeTelefone,
-  IconeLocal,
-  IconeConfiguracao,
-} from "@/components/ui";
-import { Ionicons, Feather } from "@expo/vector-icons";
+    Alert,
+    Linking,
+    ScrollView,
+    StyleSheet,
+    Switch,
+    TouchableOpacity,
+    View,
+} from "react-native";
+import Animated, { FadeInDown } from "react-native-reanimated";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 /**
  * Item de configuração
@@ -115,7 +114,10 @@ export default function TelaPerfil() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: cores.fundo }]}>
+    <SafeAreaView 
+      style={[styles.container, { backgroundColor: cores.fundo }]}
+      edges={["top"]}
+    >
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
@@ -253,14 +255,22 @@ export default function TelaPerfil() {
 
         {/* Footer */}
         <Animated.View
-          entering={FadeInDown.delay(600)}
+          entering={FadeInDown.delay(500)}
           style={styles.footer}
         >
+          <TouchableOpacity 
+            onPress={() => Linking.openURL('https://www.instagram.com/derick.mackenzie/')}
+            activeOpacity={0.7}
+          >
+            <Texto variante="pequeno" secundario centralizado>
+              Desenvolvido por{' '}
+              <Texto variante="pequeno" cor={Cores.fixas.info} negrito>
+                Derick Mackenzie
+              </Texto>
+            </Texto>
+          </TouchableOpacity>
           <Texto variante="pequeno" secundario centralizado>
-            Desenvolvido com ❤️ para Barbearia BR99
-          </Texto>
-          <Texto variante="pequeno" secundario centralizado>
-            © 2024 - Todos os direitos reservados
+            2026 Barbearia BR99 - Todos os direitos reservados
           </Texto>
         </Animated.View>
       </ScrollView>
