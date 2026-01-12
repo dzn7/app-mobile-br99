@@ -1,18 +1,24 @@
 /**
  * Layout das Tabs - BarbeariaBR99
- * Navegação inferior com tabs
+ * Navegação inferior com tabs - respeitando safe areas em Android e iOS
  */
 
 import React from "react";
 import { Tabs } from "expo-router";
-import { Platform, StyleSheet } from "react-native";
+import { Platform, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTema } from "@/contexts/TemaContext";
 import Cores from "@/constants/Colors";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function LayoutTabs() {
   const { tema } = useTema();
   const cores = Cores[tema];
+  const insets = useSafeAreaInsets();
+
+  // Calcular padding bottom considerando safe area (para botões virtuais do Android)
+  const paddingBottomSeguro = Math.max(insets.bottom, Platform.OS === "ios" ? 0 : 12);
+  const alturaTabBar = 60 + paddingBottomSeguro;
 
   return (
     <Tabs
@@ -24,9 +30,15 @@ export default function LayoutTabs() {
           backgroundColor: cores.tabFundo,
           borderTopColor: cores.borda,
           borderTopWidth: 1,
-          height: Platform.OS === "ios" ? 88 : 64,
-          paddingBottom: Platform.OS === "ios" ? 28 : 8,
+          height: alturaTabBar,
+          paddingBottom: paddingBottomSeguro,
           paddingTop: 8,
+          // Sombra sutil para dar profundidade
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: tema === 'dark' ? 0.3 : 0.08,
+          shadowRadius: 8,
+          elevation: 10,
         },
         tabBarLabelStyle: {
           fontSize: 11,

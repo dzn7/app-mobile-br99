@@ -64,7 +64,7 @@ export function CampoTexto({
   const corBorda = erro
     ? Cores.fixas.erro
     : focado
-    ? cores.texto
+    ? cores.destaque
     : cores.inputBorda;
 
   return (

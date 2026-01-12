@@ -57,7 +57,7 @@ function ItemConfiguracao({
       activeOpacity={0.7}
       style={[styles.itemConfig, { borderBottomColor: cores.borda }]}
     >
-      <View style={styles.itemIcone}>{icone}</View>
+      <View style={[styles.itemIcone, { backgroundColor: cores.fundoSecundario }]}>{icone}</View>
       <View style={styles.itemTexto}>
         <Texto variante="corpo">{titulo}</Texto>
         {subtitulo && (
@@ -189,7 +189,7 @@ export default function TelaPerfil() {
           </Texto>
 
           <Cartao>
-            <View style={styles.horarioItem}>
+            <View style={[styles.horarioItem, { borderBottomColor: cores.borda }]}>
               <Texto variante="corpo">Segunda a Sexta</Texto>
               <Texto variante="corpo" negrito>
                 09:00 - 19:00
@@ -313,7 +313,6 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: "#f4f4f520",
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,
@@ -326,7 +325,6 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#27272a30",
   },
   footer: {
     marginTop: 40,

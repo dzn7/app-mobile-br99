@@ -157,7 +157,7 @@ function CardAgendamento({
       </View>
 
       {/* Valor */}
-      <View style={styles.agendamentoValor}>
+      <View style={[styles.agendamentoValor, { borderTopColor: cores.borda }]}>
         <Texto variante="corpo" secundario>
           Valor total
         </Texto>
@@ -527,7 +527,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: "#27272a",
   },
   agendamentoAcoes: {
     marginTop: 12,
