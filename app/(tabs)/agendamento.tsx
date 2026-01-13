@@ -35,6 +35,7 @@ import {
   ScrollView,
   StyleSheet,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from "react-native";
 import Animated, {
@@ -277,7 +278,7 @@ function EtapaBarbeiro({
 }
 
 /**
- * Componente de seleção de data - Design premium estilo Nubank/Notion
+ * Componente de seleção de data - Design responsivo e limpo
  */
 function EtapaData({
   dataSelecionada,
@@ -291,6 +292,7 @@ function EtapaData({
   const { tema } = useTema();
   const cores = Cores[tema];
   const { configuracao } = useConfiguracaoBarbearia();
+  const { width: larguraTela } = useWindowDimensions();
 
   // Mapa de dias da semana
   const mapaDias = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
@@ -349,14 +351,15 @@ function EtapaData({
 
   // Cores dinâmicas para tema claro/escuro
   const coresDinamicas = {
-    fundoSelecionado: tema === 'dark' ? '#22c55e' : '#16a34a',
+    fundoSelecionado: '#22c55e',
     textoSelecionado: '#ffffff',
-    fundoHoje: tema === 'dark' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(22, 163, 74, 0.12)',
-    bordaHoje: tema === 'dark' ? '#22c55e' : '#16a34a',
-    fundoDia: tema === 'dark' ? cores.cartao : '#f8fafc',
-    bordaDia: tema === 'dark' ? cores.borda : '#e2e8f0',
-    cardDestaque: tema === 'dark' ? '#22c55e' : '#16a34a',
+    fundoHoje: tema === 'dark' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(22, 163, 74, 0.15)',
+    bordaHoje: '#22c55e',
+    cardDestaque: '#22c55e',
   };
+
+  // Calcular tamanho de cada célula baseado na largura da tela (responsivo)
+  const larguraCelula = Math.floor((larguraTela - 40 - 32) / 7); // (tela - padding lateral - padding container) / 7
 
   return (
     <Animated.View
@@ -371,51 +374,54 @@ function EtapaData({
         Selecione o melhor dia para você
       </Texto>
 
-      {/* Card com data selecionada - design premium */}
+      {/* Card com data selecionada */}
       {dataSelecionada ? (
         <Animated.View 
           entering={FadeInDown.springify()}
           style={[
-            styles.dataSelecionadaCardPremium, 
+            styles.dataSelecionadaCardNovo, 
             { backgroundColor: coresDinamicas.cardDestaque }
           ]}
         >
-          <View style={styles.dataSelecionadaIconePremium}>
-            <IconeCalendario tamanho={28} cor="#fff" />
+          <View style={styles.dataSelecionadaIconeNovo}>
+            <IconeCalendario tamanho={24} cor="#fff" />
           </View>
-          <View style={styles.dataSelecionadaInfoPremium}>
-            <Texto variante="pequeno" cor="rgba(255,255,255,0.8)" style={{ textTransform: 'uppercase', letterSpacing: 1 }}>
+          <View style={styles.dataSelecionadaInfoNovo}>
+            <Texto variante="pequeno" cor="rgba(255,255,255,0.85)" style={{ textTransform: 'uppercase', letterSpacing: 0.5, fontSize: 10 }}>
               Data selecionada
             </Texto>
-            <Texto variante="subtitulo" cor="#fff" negrito style={{ marginTop: 2 }}>
+            <Texto variante="label" cor="#fff" negrito style={{ marginTop: 2 }}>
               {formatarDataCompleta(dataSelecionada)}
             </Texto>
           </View>
         </Animated.View>
       ) : (
-        <View style={[styles.dataSelecionadaCardVazio, { backgroundColor: cores.fundoSecundario, borderColor: cores.borda }]}>
-          <IconeCalendario tamanho={24} cor={cores.textoSecundario} />
-          <Texto variante="corpo" secundario style={{ marginLeft: 12 }}>
-            Nenhuma data selecionada
+        <View style={[styles.dataSelecionadaCardVazioNovo, { backgroundColor: cores.fundoSecundario, borderColor: cores.borda }]}>
+          <IconeCalendario tamanho={20} cor={cores.textoSecundario} />
+          <Texto variante="corpo" secundario style={{ marginLeft: 10 }}>
+            Selecione uma data abaixo
           </Texto>
         </View>
       )}
 
-      {/* Calendário premium */}
-      <View style={[styles.calendarioContainer, { backgroundColor: cores.cartao, borderColor: cores.borda }]}>
+      {/* Calendário */}
+      <View style={[styles.calendarioContainerNovo, { backgroundColor: cores.cartao, borderColor: cores.borda }]}>
         {/* Header dos dias da semana */}
-        <View style={styles.diasSemanaHeaderPremium}>
-          {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((dia, idx) => {
+        <View style={styles.diasSemanaHeaderNovo}>
+          {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((dia, idx) => {
             const diaAbrev = mapaDias[idx];
             const aberto = diasFuncionamento.includes(diaAbrev);
-            const ehFimDeSemana = idx === 0 || idx === 6;
             return (
-              <View key={dia} style={styles.diaSemanaItemPremium}>
+              <View key={`header-${idx}`} style={[styles.diaSemanaItemNovo, { width: larguraCelula }]}>
                 <Texto 
                   variante="pequeno" 
                   negrito
-                  cor={!aberto ? cores.textoSecundario : ehFimDeSemana ? cores.erro : cores.texto} 
-                  style={{ textAlign: 'center', opacity: aberto ? 1 : 0.5, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5 }}
+                  cor={aberto ? cores.texto : cores.textoSecundario} 
+                  style={{ 
+                    textAlign: 'center', 
+                    opacity: aberto ? 1 : 0.4, 
+                    fontSize: 12,
+                  }}
                 >
                   {dia}
                 </Texto>
@@ -425,13 +431,20 @@ function EtapaData({
         </View>
 
         {/* Grid de datas */}
-        <View style={styles.gridCalendario}>
+        <View style={styles.gridCalendarioNovo}>
           {semanas.map((semana, semanaIndex) => (
-            <View key={semanaIndex} style={styles.semanaRowPremium}>
+            <View key={`semana-${semanaIndex}`} style={styles.semanaRowNovo}>
               {semana.map((data, diaIndex) => {
-                // Dia vazio (antes do primeiro dia ou após último)
+                const chave = data ? data.toISOString() : `vazio-${semanaIndex}-${diaIndex}`;
+                
+                // Dia vazio
                 if (!data) {
-                  return <View key={`empty-${semanaIndex}-${diaIndex}`} style={styles.diaItemPremium} />;
+                  return (
+                    <View 
+                      key={chave} 
+                      style={[styles.diaItemNovo, { width: larguraCelula, height: larguraCelula }]} 
+                    />
+                  );
                 }
 
                 const selecionada = dataSelecionada && 
@@ -440,10 +453,9 @@ function EtapaData({
                 const disponivel = diaDisponivel(data);
 
                 return (
-                  <Animated.View
-                    key={data.toISOString()}
-                    entering={FadeInDown.delay((semanaIndex * 7 + diaIndex) * 10)}
-                    style={styles.diaItemPremium}
+                  <View 
+                    key={chave}
+                    style={[styles.diaItemNovo, { width: larguraCelula, height: larguraCelula }]}
                   >
                     <TouchableOpacity
                       onPress={() => {
@@ -455,64 +467,60 @@ function EtapaData({
                       activeOpacity={disponivel ? 0.7 : 1}
                       disabled={!disponivel}
                       style={[
-                        styles.diaBotaoPremium,
+                        styles.diaBotaoNovo,
                         selecionada && { backgroundColor: coresDinamicas.fundoSelecionado },
                         ehHoje && !selecionada && disponivel && { 
                           backgroundColor: coresDinamicas.fundoHoje, 
                           borderColor: coresDinamicas.bordaHoje,
                           borderWidth: 2 
                         },
-                        !disponivel && styles.diaIndisponivelPremium,
-                        !selecionada && !ehHoje && disponivel && { 
-                          backgroundColor: 'transparent',
-                        },
+                        !disponivel && { opacity: 0.3 },
                       ]}
                     >
                       <Texto
                         variante="corpo"
                         negrito={selecionada || ehHoje}
                         cor={
-                          !disponivel 
-                            ? cores.textoSecundario 
-                            : selecionada 
+                          selecionada 
                             ? coresDinamicas.textoSelecionado 
-                            : ehHoje 
+                            : ehHoje && disponivel
                             ? coresDinamicas.bordaHoje 
                             : cores.texto
                         }
                         style={[
-                          { fontSize: 16 },
-                          !disponivel && { opacity: 0.35, textDecorationLine: 'line-through' }
+                          { fontSize: 15 },
+                          !disponivel && { textDecorationLine: 'line-through' }
                         ]}
                       >
                         {format(data, "d")}
                       </Texto>
                       {ehHoje && !selecionada && disponivel && (
-                        <View style={[styles.indicadorHoje, { backgroundColor: coresDinamicas.bordaHoje }]} />
+                        <View style={[styles.indicadorHojeNovo, { backgroundColor: coresDinamicas.bordaHoje }]} />
                       )}
                     </TouchableOpacity>
-                  </Animated.View>
+                  </View>
                 );
               })}
             </View>
           ))}
         </View>
 
-        {/* Legenda */}
-        <View style={[styles.legendaCalendario, { borderTopColor: cores.borda }]}>
-          <View style={styles.legendaItem}>
-            <View style={[styles.legendaBolinha, { backgroundColor: coresDinamicas.bordaHoje }]} />
+        {/* Legenda - FORA do grid */}
+        <View style={[styles.legendaCalendarioNovo, { borderTopColor: cores.borda }]}>
+          <View style={styles.legendaItemNovo}>
+            <View style={[styles.legendaBolinhaHoje, { borderColor: coresDinamicas.bordaHoje }]} />
             <Texto variante="pequeno" secundario>Hoje</Texto>
           </View>
-          <View style={styles.legendaItem}>
-            <View style={[styles.legendaBolinha, { backgroundColor: cores.textoSecundario, opacity: 0.4 }]} />
+          <View style={styles.legendaItemNovo}>
+            <Texto variante="pequeno" secundario style={{ textDecorationLine: 'line-through', opacity: 0.5 }}>00</Texto>
             <Texto variante="pequeno" secundario>Fechado</Texto>
           </View>
         </View>
       </View>
 
+      {/* Botão Continuar */}
       {dataSelecionada && (
-        <Animated.View entering={FadeInUp.springify()} style={styles.botaoFixoCalendario}>
+        <Animated.View entering={FadeInUp.springify()} style={styles.botaoFixoCalendarioNovo}>
           <Botao titulo="Continuar" onPress={onAvancar} larguraTotal />
         </Animated.View>
       )}
@@ -1394,105 +1402,100 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
-  // Estilos do calendário premium
-  dataSelecionadaCardPremium: {
+  // Estilos do calendário - Design responsivo e limpo
+  dataSelecionadaCardNovo: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 18,
-    borderRadius: 16,
-    marginBottom: 20,
-    shadowColor: "#22c55e",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 6,
+    padding: 14,
+    borderRadius: 12,
+    marginBottom: 16,
   },
-  dataSelecionadaIconePremium: {
-    width: 52,
-    height: 52,
-    borderRadius: 14,
+  dataSelecionadaIconeNovo: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     backgroundColor: "rgba(255,255,255,0.2)",
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 14,
+    marginRight: 12,
   },
-  dataSelecionadaInfoPremium: {
+  dataSelecionadaInfoNovo: {
     flex: 1,
   },
-  dataSelecionadaCardVazio: {
+  dataSelecionadaCardVazioNovo: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 18,
-    borderRadius: 16,
-    marginBottom: 20,
-    borderWidth: 2,
+    padding: 14,
+    borderRadius: 12,
+    marginBottom: 16,
+    borderWidth: 1,
     borderStyle: "dashed",
   },
-  calendarioContainer: {
-    borderRadius: 20,
+  calendarioContainerNovo: {
+    borderRadius: 16,
     borderWidth: 1,
     padding: 16,
-    flex: 1,
   },
-  diasSemanaHeaderPremium: {
+  diasSemanaHeaderNovo: {
     flexDirection: "row",
-    marginBottom: 16,
+    justifyContent: "space-between",
+    marginBottom: 12,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(0,0,0,0.05)",
+    borderBottomColor: "rgba(128,128,128,0.1)",
   },
-  diaSemanaItemPremium: {
-    flex: 1,
+  diaSemanaItemNovo: {
     alignItems: "center",
     justifyContent: "center",
   },
-  gridCalendario: {
-    flex: 1,
+  gridCalendarioNovo: {
+    // Sem flex: 1 para evitar sobreposição
   },
-  semanaRowPremium: {
+  semanaRowNovo: {
     flexDirection: "row",
-    marginBottom: 6,
+    justifyContent: "space-between",
+    marginBottom: 4,
   },
-  diaItemPremium: {
-    flex: 1,
-    aspectRatio: 1,
-    padding: 3,
+  diaItemNovo: {
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 2,
   },
-  diaBotaoPremium: {
-    flex: 1,
-    borderRadius: 14,
+  diaBotaoNovo: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
   },
-  diaIndisponivelPremium: {
-    backgroundColor: "transparent",
-  },
-  indicadorHoje: {
+  indicadorHojeNovo: {
     position: "absolute",
-    bottom: 6,
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
+    bottom: 4,
+    width: 4,
+    height: 4,
+    borderRadius: 2,
   },
-  legendaCalendario: {
+  legendaCalendarioNovo: {
     flexDirection: "row",
     justifyContent: "center",
-    gap: 24,
-    paddingTop: 16,
-    marginTop: 12,
+    gap: 20,
+    paddingTop: 14,
+    marginTop: 14,
     borderTopWidth: 1,
   },
-  legendaItem: {
+  legendaItemNovo: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
   },
-  legendaBolinha: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+  legendaBolinhaHoje: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 2,
+    backgroundColor: "transparent",
   },
-  botaoFixoCalendario: {
+  botaoFixoCalendarioNovo: {
     paddingTop: 16,
   },
   // Estilos legados mantidos para compatibilidade
